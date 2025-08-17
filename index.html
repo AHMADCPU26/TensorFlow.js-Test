@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>XOR Neural Net (Visual)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 40px; }
+    input { width: 40px; text-align: center; font-size: 16px; margin: 5px; }
+    button { padding: 8px 16px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    #result {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      padding: 10px;
+      display: inline-block;
+      min-width: 150px;
+      border-radius: 8px;
+    }
+  </style>
+
+</head>
+<h2>Neural Net learns XOR</h2>
+  <p>Enter two binary values (0 or 1) and see the prediction:</p>
+
+  <input type="number" id="input1" min="0" max="1" value="0">
+  <input type="number" id="input2" min="0" max="1" value="0">
+  <br>
+  <button onclick="predict()">Predict</button>
+
+  <div id="result">Prediction: -</div>
+
+  <script>
+    let model;
+
+    async function trainModel() {
+      // Build model
+      model = tf.sequential();
+      model.add(tf.layers.dense({ units: 16, inputShape: [2], activation: 'relu' }));
+      model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+      model.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+
+      // XOR training data
+      const xs = tf.tensor2d([[0,0],[0,1],[1,0],[1,1]]);
+      const ys = tf.tensor2d([[0],[1],[1],[0]]);
+
+      // Train
+      await model.fit(xs, ys, { epochs: 100, callbacks: { onEpochEnd: (epoch, logs) => console.log(`Epoch ${epoch}: loss = ${logs.loss}`) }
+       });
+      console.log("Training complete!");
+    }
+
+    async function predict() {
+      const a = parseInt(document.getElementById("input1").value);
+      const b = parseInt(document.getElementById("input2").value);
+
+      const input = tf.tensor2d([[a, b]]);
+      const output = model.predict(input);
+      const val = (await output.array())[0][0];
+
+      // Show result with color feedback
+      const resultDiv = document.getElementById("result");
+      resultDiv.textContent = `Prediction: ${val.toFixed(2)}`;
+      const r = Math.round(val * 255);
+      const bCol = Math.round((1 - val) * 255);
+      resultDiv.style.backgroundColor = `rgb(${r},100,${bCol})`;
+      resultDiv.style.color = "white";
+    }
+
+    trainModel();
+  </script>
+</body>
+</html>
