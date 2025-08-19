@@ -29,9 +29,37 @@
   <button onclick="predict()">Predict</button>
 
   <div id="result">Prediction: -</div>
+  <div id="console" style="font-family: monospace;"></div>
 
   <script>
     let model;
+
+    class EarlyStopping {
+  constructor(patience = 10, minDelta = 0) {
+    this.patience = patience;
+    this.minDelta = minDelta;
+    this.bestLoss = Infinity;
+    this.wait = 0;
+    this.stoppedEpoch = 0;
+  }
+
+  onEpochEnd(epoch, logs) {
+    const currentLoss = logs.loss;
+
+    if (currentLoss + this.minDelta < this.bestLoss) {
+      this.bestLoss = currentLoss;
+      this.wait = 0; // reset patience
+    } else {
+      this.wait++;
+      if (this.wait >= this.patience) {
+        this.stoppedEpoch = epoch;
+        console.log(`Early stopping at epoch ${epoch + 1}`);
+        return true; // signal to stop
+      }
+    }
+    return false; // keep training
+  }
+}
 
     async function trainModel() {
       // Build model
@@ -40,14 +68,28 @@
       model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
       model.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
 
-      // XOR training data
-      const xs = tf.tensor2d([[0,0],[0,1],[1,0],[1,1]]);
-      const ys = tf.tensor2d([[0],[1],[1],[0]]);
+      // XOR training data (repeated 100 times)
+      const xsArr = [];
+      const ysArr = [];
+      for (let i = 0; i < 100; i++) {
+        xsArr.push([0,0], [0,1], [1,0], [1,1]);
+        ysArr.push([0], [1], [1], [0]);
+      }
+      const xs = tf.tensor2d(xsArr);
+      const ys = tf.tensor2d(ysArr);
 
       // Train
-      await model.fit(xs, ys, { epochs: 100, callbacks: { onEpochEnd: (epoch, logs) => console.log(`Epoch ${epoch}: loss = ${logs.loss}`) }
+      const earlyStopping = new EarlyStopping(20, Math.pow(10, -2.8)); 
+
+      await model.fit(xs, ys, { epochs: 100000, callbacks: { onEpochEnd: (epoch, logs) => {
+        document.getElementById("console").textContent = `\nEpoch ${epoch}: loss = ${logs.loss}`
+        if (earlyStopping.onEpochEnd(epoch, logs)) {
+          model.stopTraining = true;
+        }
+      } }
        });
-      console.log("Training complete!");
+      // console.log("Training complete!");
+      document.getElementById("console").textContent += "\nTraining complete!";
     }
 
     async function predict() {
